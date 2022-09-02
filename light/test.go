@@ -1,4 +1,4 @@
-package twamp
+package light
 
 import (
 	"bytes"
@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/halacs/twamp"
 	"golang.org/x/net/ipv4"
 	"log"
 	"math/rand"
 	"net"
-	"strings"
 	"time"
 	"unsafe"
 )
@@ -18,22 +18,22 @@ import (
 /*
 TWAMP test connection used for running TWAMP tests.
 */
-type TwampTest struct {
-	session *TwampSession
-	conn    *net.UDPConn
-	seq     uint32
+type TwampLightTest struct {
+	Session    *TwampLightSession
+	Connection *net.UDPConn
+	Sequence   uint32
 }
 
 /*
 Function header called when a test package arrived back.
 Can be used to show some progress
- */
-type TwampTestCallbackFunction func(result *TwampResults);
+*/
+type TwampTestCallbackFunction func(result *twamp.TwampResults)
 
 /*
  */
-func (t *TwampTest) SetConnection(conn *net.UDPConn) {
-	c := ipv4.NewConn(conn)
+func (t *TwampLightTest) SetConnection(connection *net.UDPConn) {
+	c := ipv4.NewConn(connection)
 
 	// RFC recommends IP TTL of 255
 	err := c.SetTTL(255)
@@ -46,27 +46,27 @@ func (t *TwampTest) SetConnection(conn *net.UDPConn) {
 		log.Fatal(err)
 	}
 
-	t.conn = conn
+	t.Connection = connection
 }
 
 /*
 Get TWAMP Test UDP connection.
 */
-func (t *TwampTest) GetConnection() *net.UDPConn {
-	return t.conn
+func (t *TwampLightTest) GetConnection() *net.UDPConn {
+	return t.Connection
 }
 
 /*
-Get the underlying TWAMP control session for the TWAMP test.
+Get the underlying TWAMP control Session for the TWAMP test.
 */
-func (t *TwampTest) GetSession() *TwampSession {
-	return t.session
+func (t *TwampLightTest) GetSession() *TwampLightSession {
+	return t.Session
 }
 
 /*
 Get the remote TWAMP IP/UDP address.
 */
-func (t *TwampTest) RemoteAddr() (*net.UDPAddr, error) {
+func (t *TwampLightTest) RemoteAddr() (*net.UDPAddr, error) {
 	address := fmt.Sprintf("%s:%d", t.GetRemoteTestHost(), t.GetRemoteTestPort())
 	return net.ResolveUDPAddr("udp", address)
 }
@@ -74,51 +74,52 @@ func (t *TwampTest) RemoteAddr() (*net.UDPAddr, error) {
 /*
 Get the remote TWAMP UDP port number.
 */
-func (t *TwampTest) GetRemoteTestPort() uint16 {
-	return t.GetSession().port
+func (t *TwampLightTest) GetRemoteTestPort() uint16 {
+	return t.GetSession().connection.port
 }
 
 /*
-Get the local IP address for the TWAMP control session.
+Get the local IP address for the TWAMP control Session.
 */
-func (t *TwampTest) GetLocalTestHost() string {
-	localAddress := t.session.GetConnection().LocalAddr()
-	return strings.Split(localAddress.String(), ":")[0]
+func (t *TwampLightTest) GetLocalTestHost() string {
+	//localAddress := t.Session.GetConnection().LocalAddr()
+	//return strings.Split(localAddress.String(), ":")[0]
+	// TODO implement this correctly for light session
+	return ""
 }
 
 /*
-Get the remote IP address for the TWAMP control session.
+Get the remote IP address for the TWAMP control Session.
 */
-func (t *TwampTest) GetRemoteTestHost() string {
-	remoteAddress := t.session.GetConnection().RemoteAddr()
-	return strings.Split(remoteAddress.String(), ":")[0]
+func (t *TwampLightTest) GetRemoteTestHost() string {
+	return t.GetSession().connection.hostname
 }
 
 type MeasurementPacket struct {
-	Sequence uint32
-	Timestamp TwampTimestamp
-	ErrorEstimate uint16
-	MBZ uint16
-	ReceiveTimeStamp TwampTimestamp
-	SenderSequence uint32
-	SenderTimeStamp TwampTimestamp
+	Sequence            uint32
+	Timestamp           twamp.TwampTimestamp
+	ErrorEstimate       uint16
+	MBZ                 uint16
+	ReceiveTimeStamp    twamp.TwampTimestamp
+	SenderSequence      uint32
+	SenderTimeStamp     twamp.TwampTimestamp
 	SenderErrorEstimate uint16
-	Mbz uint16
-	SenderTtl byte
+	Mbz                 uint16
+	SenderTtl           byte
 	//Padding []byte
 }
 
 /*
 Run a TWAMP test and return a pointer to the TwampResults.
 */
-func (t *TwampTest) Run() (*TwampResults, error) {
+func (t *TwampLightTest) Run() (*twamp.TwampResults, error) {
 	paddingSize := t.GetSession().config.Padding
-	senderSeqNum := t.seq
+	senderSeqNum := t.Sequence
 
-	size := t.sendTestMessage(true)
+	size := t.sendTestMessage(t.GetSession().config.UseAllZeros)
 
 	// receive test packets - allocate a receive buffer of a size we expect to receive plus a bit to know if we get some garbage
-	buffer, err := readFromSocket(t.GetConnection(), (int(unsafe.Sizeof(MeasurementPacket{}))+paddingSize)*2)
+	buffer, err := twamp.ReadFromSocket(t.GetConnection(), (int(unsafe.Sizeof(MeasurementPacket{}))+paddingSize)*2)
 	if err != nil {
 		return nil, err
 	}
@@ -142,43 +143,43 @@ func (t *TwampTest) Run() (*TwampResults, error) {
 	}
 
 	// process test results
-	r := &TwampResults{}
+	r := &twamp.TwampResults{}
 	r.SenderSize = size
 	r.SeqNum = responseHeader.Sequence
-	r.Timestamp = NewTimestamp(responseHeader.Timestamp)
+	r.Timestamp = twamp.NewTimestamp(responseHeader.Timestamp)
 	r.ErrorEstimate = responseHeader.ErrorEstimate
-	r.ReceiveTimestamp = NewTimestamp(responseHeader.ReceiveTimeStamp)
+	r.ReceiveTimestamp = twamp.NewTimestamp(responseHeader.ReceiveTimeStamp)
 	r.SenderSeqNum = responseHeader.SenderSequence
-	r.SenderTimestamp = NewTimestamp(responseHeader.SenderTimeStamp)
+	r.SenderTimestamp = twamp.NewTimestamp(responseHeader.SenderTimeStamp)
 	r.SenderErrorEstimate = responseHeader.SenderErrorEstimate
 	r.SenderTTL = responseHeader.SenderTtl
 	r.FinishedTimestamp = finished
 
 	if senderSeqNum != r.SenderSeqNum {
 		return nil, errors.New(
-			fmt.Sprintf("Expected seq # %d but received %d.\n", senderSeqNum, r.SeqNum),
+			fmt.Sprintf("Expected Sequence # %d but received %d.\n", senderSeqNum, r.SeqNum),
 		)
 	}
 
 	return r, nil
 }
 
-func (t *TwampTest) sendTestMessage(use_all_zeroes bool) int {
+func (t *TwampLightTest) sendTestMessage(useAllZeros bool) int {
 	packetHeader := MeasurementPacket{
-		Sequence:            t.seq,
-		Timestamp:           *NewTwampTimestamp(time.Now()),
+		Sequence:            t.Sequence,
+		Timestamp:           *twamp.NewTwampTimestamp(time.Now()),
 		ErrorEstimate:       0x0101,
 		MBZ:                 0x0000,
-		ReceiveTimeStamp:    TwampTimestamp{},
+		ReceiveTimeStamp:    twamp.TwampTimestamp{},
 		SenderSequence:      0,
-		SenderTimeStamp:     TwampTimestamp{},
+		SenderTimeStamp:     twamp.TwampTimestamp{},
 		SenderErrorEstimate: 0x0000,
 		Mbz:                 0x0000,
 		SenderTtl:           87,
 	}
 
 	// seed psuedo-random number generator if requested
-	if !use_all_zeroes {
+	if !useAllZeros {
 		rand.NewSource(int64(time.Now().Unix()))
 	}
 
@@ -186,7 +187,7 @@ func (t *TwampTest) sendTestMessage(use_all_zeroes bool) int {
 	padding := make([]byte, paddingSize, paddingSize)
 
 	for x := 0; x < paddingSize; x++ {
-		if use_all_zeroes {
+		if useAllZeros {
 			padding[x] = 0
 		} else {
 			padding[x] = byte(rand.Intn(255))
@@ -201,17 +202,17 @@ func (t *TwampTest) sendTestMessage(use_all_zeroes bool) int {
 
 	headerBytes := binaryBuffer.Bytes()
 	headerSize := binaryBuffer.Len()
-	totalSize := headerSize+paddingSize
+	totalSize := headerSize + paddingSize
 	var pdu []byte = make([]byte, totalSize)
 	copy(pdu[0:], headerBytes)
 	copy(pdu[headerSize:], padding)
 
 	t.GetConnection().Write(pdu)
-	t.seq++
+	t.Sequence++
 	return totalSize
 }
 
-func (t *TwampTest) FormatJSON(r *PingResults) {
+func (t *TwampLightTest) FormatJSON(r *twamp.PingResults) {
 	doc, err := json.Marshal(r)
 	if err != nil {
 		log.Fatal(err)
@@ -219,7 +220,7 @@ func (t *TwampTest) FormatJSON(r *PingResults) {
 	fmt.Printf("%s\n", string(doc))
 }
 
-func (t *TwampTest) ReturnJSON(r *PingResults) string {
+func (t *TwampLightTest) ReturnJSON(r *twamp.PingResults) string {
 	doc, err := json.Marshal(r)
 	if err != nil {
 		log.Fatal(err)
@@ -227,9 +228,9 @@ func (t *TwampTest) ReturnJSON(r *PingResults) string {
 	return fmt.Sprintf("%s\n", string(doc))
 }
 
-func (t *TwampTest) Ping(count int, isRapid bool, interval int) *PingResults {
-	Stats := &PingResultStats{}
-	Results := &PingResults{Stat: Stats}
+func (t *TwampLightTest) Ping(count int, isRapid bool, interval int) *twamp.PingResults {
+	Stats := &twamp.PingResultStats{}
+	Results := &twamp.PingResults{Stat: Stats}
 	var TotalRTT time.Duration = 0
 
 	packetSize := 14 + t.GetSession().GetConfig().Padding
@@ -284,7 +285,7 @@ func (t *TwampTest) Ping(count int, isRapid bool, interval int) *PingResults {
 
 	Stats.Avg = time.Duration(int64(TotalRTT) / int64(count))
 	Stats.Loss = float64(float64(Stats.Transmitted-Stats.Received)/float64(Stats.Transmitted)) * 100.0
-	Stats.StdDev = Results.stdDev(Stats.Avg)
+	Stats.StdDev = Results.StdDev(Stats.Avg)
 
 	fmt.Printf("--- %s twamp ping statistics ---\n", t.GetRemoteTestHost())
 	fmt.Printf("%d packets transmitted, %d packets received, %0.1f%% packet loss\n",
@@ -297,14 +298,14 @@ func (t *TwampTest) Ping(count int, isRapid bool, interval int) *PingResults {
 		(float64(Stats.Max) / float64(time.Millisecond)),
 		(float64(Stats.StdDev) / float64(time.Millisecond)),
 	)
-	defer t.conn.Close()
+	defer t.Connection.Close()
 
 	return Results
 }
 
-func (t *TwampTest) RunX(count int, callback TwampTestCallbackFunction) *PingResults {
-	Stats := &PingResultStats{}
-	Results := &PingResults{Stat: Stats}
+func (t *TwampLightTest) RunX(count int, callback TwampTestCallbackFunction) *twamp.PingResults {
+	Stats := &twamp.PingResultStats{}
+	Results := &twamp.PingResults{Stat: Stats}
 	var TotalRTT time.Duration = 0
 
 	for i := 0; i < count; i++ {
@@ -335,8 +336,8 @@ func (t *TwampTest) RunX(count int, callback TwampTestCallbackFunction) *PingRes
 
 	Stats.Avg = time.Duration(int64(TotalRTT) / int64(count))
 	Stats.Loss = float64(float64(Stats.Transmitted-Stats.Received)/float64(Stats.Transmitted)) * 100.0
-	Stats.StdDev = Results.stdDev(Stats.Avg)
-	defer t.conn.Close()
+	Stats.StdDev = Results.StdDev(Stats.Avg)
+	defer t.Connection.Close()
 
 	return Results
 }
