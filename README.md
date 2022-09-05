@@ -4,22 +4,26 @@ TWAMP client for go
 
 ## Client Library Synopsis
 
+### TWAMP Full
 ```
-	c := twamp.NewClient()
-	connection, err := c.Connect("10.1.1.200:862")
+	config := twamp.TwampSessionConfig{
+		ReceiverPort: 6666,
+		SenderPort:   6666,
+		Timeout:      1,
+		Padding:      100,
+		TOS:          twamp.EF,
+		UseAllZeros:  false,
+	}
+
+	var session *full.TwampFullSession
+
+	client := full.NewFullClient()
+	connection, err := client.Connect("127.0.0.1", 862)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	session, err := connection.CreateSession(
-		twamp.TwampSessionConfig{
-			ReceiverPort: 6666,
-			SenderPort:   6666,
-			Timeout:      1,
-			Padding:      100,
-			TOS:          twamp.EF,
-		},
-	)
+	session, err = connection.CreateFullSession(config)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -38,6 +42,50 @@ TWAMP client for go
 	}
 
 	log.Printf("Stat: %+v\n", *results.Stat)
+
+	session.Stop()
+	connection.Close()
+```
+
+### TWAMP Light
+```
+config := twamp.TwampSessionConfig{
+		ReceiverPort: 6666,
+		SenderPort:   6666,
+		Timeout:      1,
+		Padding:      100,
+		TOS:          twamp.EF,
+		UseAllZeros:  false,
+	}
+
+	var session *light.TwampLightSession
+
+	client := light.NewLightClient()
+	connection, err := client.Connect("127.0.0.1", 2000)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	session, err = connection.CreateLightSession(config)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	test, err := session.CreateTest()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	count := 2000
+	results := test.RunX(count, func(result *twamp.TwampResults) {
+		fmt.Printf("%.2f  \r", float64(result.SenderSeqNum)/float64(count)*100.0)
+	})
+	if err != nil {
+		log.Fatal("%v", err)
+	}
+
+	log.Printf("Stat: %+v\n", *results.Stat)
+
 	session.Stop()
 	connection.Close()
 ```

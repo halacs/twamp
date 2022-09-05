@@ -7,7 +7,7 @@ import (
 )
 
 /*
-	TWAMP test result timestamps have been normalized to UNIX epoch time.
+TWAMP test result timestamps have been normalized to UNIX epoch time.
 */
 type TwampResults struct {
 	SeqNum              uint32    `json:"seqnum"`
@@ -51,7 +51,7 @@ type PingResults struct {
 	Stat    *PingResultStats `json:"stats"`
 }
 
-func (r *PingResults) stdDev(mean time.Duration) time.Duration {
+func (r *PingResults) StdDev(mean time.Duration) time.Duration {
 	total := float64(0)
 	for _, result := range r.Results {
 		total += math.Pow(float64(result.GetRTT()-mean), 2)
