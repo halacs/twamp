@@ -1,4 +1,4 @@
-package twamp
+package common
 
 import (
 	"log"

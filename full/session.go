@@ -3,23 +3,27 @@ package full
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/halacs/twamp"
+	"github.com/halacs/twamp/common"
 	"log"
 	"net"
 )
 
 type TwampFullSession struct {
 	connection *TwampFullConnection
-	Port       uint16
-	Config     twamp.TwampSessionConfig
+	port       uint16
+	config     common.TwampSessionConfig
 }
 
 func (s *TwampFullSession) GetConnection() net.Conn {
 	return s.connection.GetConnection()
 }
 
-func (s *TwampFullSession) GetConfig() twamp.TwampSessionConfig {
-	return s.Config
+func (s *TwampFullSession) GetConfig() common.TwampSessionConfig {
+	return s.config
+}
+
+func (s *TwampFullSession) GetPort() uint16 {
+	return s.port
 }
 
 func (s *TwampFullSession) Write(buf []byte) {
@@ -32,7 +36,7 @@ func (s *TwampFullSession) CreateTest() (*TwampFullTest, error) {
 
 	s.Write(pdu)
 
-	startAckBuffer, err := twamp.ReadFromSocket(s.GetConnection(), 32)
+	startAckBuffer, err := common.ReadFromSocket(s.GetConnection(), 32)
 	if err != nil {
 		return nil, err
 	}

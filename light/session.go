@@ -2,16 +2,16 @@ package light
 
 import (
 	"fmt"
-	"github.com/halacs/twamp"
+	"github.com/halacs/twamp/common"
 	"net"
 )
 
 type TwampLightSession struct {
 	connection *TwampLightConnection
-	config     twamp.TwampSessionConfig
+	config     common.TwampSessionConfig
 }
 
-func (s *TwampLightSession) GetConfig() twamp.TwampSessionConfig {
+func (s *TwampLightSession) GetConfig() common.TwampSessionConfig {
 	return s.config
 }
 

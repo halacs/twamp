@@ -1,4 +1,4 @@
-package twamp
+package common
 
 type TwampSession struct {
 	Port   uint16

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/halacs/twamp"
+	"github.com/halacs/twamp/common"
 	"golang.org/x/net/ipv4"
 	"log"
 	"math/rand"
@@ -23,12 +23,6 @@ type TwampLightTest struct {
 	Connection *net.UDPConn
 	Sequence   uint32
 }
-
-/*
-Function header called when a test package arrived back.
-Can be used to show some progress
-*/
-type TwampTestCallbackFunction func(result *twamp.TwampResults)
 
 /*
  */
@@ -74,7 +68,7 @@ func (t *TwampLightTest) RemoteAddr() (*net.UDPAddr, error) {
 /*
 Get the remote TWAMP UDP port number.
 */
-func (t *TwampLightTest) GetRemoteTestPort() uint16 {
+func (t *TwampLightTest) GetRemoteTestPort() int {
 	return t.GetSession().connection.port
 }
 
@@ -97,12 +91,12 @@ func (t *TwampLightTest) GetRemoteTestHost() string {
 
 type MeasurementPacket struct {
 	Sequence            uint32
-	Timestamp           twamp.TwampTimestamp
+	Timestamp           common.TwampTimestamp
 	ErrorEstimate       uint16
 	MBZ                 uint16
-	ReceiveTimeStamp    twamp.TwampTimestamp
+	ReceiveTimeStamp    common.TwampTimestamp
 	SenderSequence      uint32
-	SenderTimeStamp     twamp.TwampTimestamp
+	SenderTimeStamp     common.TwampTimestamp
 	SenderErrorEstimate uint16
 	Mbz                 uint16
 	SenderTtl           byte
@@ -112,14 +106,14 @@ type MeasurementPacket struct {
 /*
 Run a TWAMP test and return a pointer to the TwampResults.
 */
-func (t *TwampLightTest) Run() (*twamp.TwampResults, error) {
+func (t *TwampLightTest) Run() (*common.TwampResults, error) {
 	paddingSize := t.GetSession().config.Padding
 	senderSeqNum := t.Sequence
 
 	size := t.sendTestMessage(t.GetSession().config.UseAllZeros)
 
 	// receive test packets - allocate a receive buffer of a size we expect to receive plus a bit to know if we get some garbage
-	buffer, err := twamp.ReadFromSocket(t.GetConnection(), (int(unsafe.Sizeof(MeasurementPacket{}))+paddingSize)*2)
+	buffer, err := common.ReadFromSocket(t.GetConnection(), (int(unsafe.Sizeof(MeasurementPacket{}))+paddingSize)*2)
 	if err != nil {
 		return nil, err
 	}
@@ -143,14 +137,14 @@ func (t *TwampLightTest) Run() (*twamp.TwampResults, error) {
 	}
 
 	// process test results
-	r := &twamp.TwampResults{}
+	r := &common.TwampResults{}
 	r.SenderSize = size
 	r.SeqNum = responseHeader.Sequence
-	r.Timestamp = twamp.NewTimestamp(responseHeader.Timestamp)
+	r.Timestamp = common.NewTimestamp(responseHeader.Timestamp)
 	r.ErrorEstimate = responseHeader.ErrorEstimate
-	r.ReceiveTimestamp = twamp.NewTimestamp(responseHeader.ReceiveTimeStamp)
+	r.ReceiveTimestamp = common.NewTimestamp(responseHeader.ReceiveTimeStamp)
 	r.SenderSeqNum = responseHeader.SenderSequence
-	r.SenderTimestamp = twamp.NewTimestamp(responseHeader.SenderTimeStamp)
+	r.SenderTimestamp = common.NewTimestamp(responseHeader.SenderTimeStamp)
 	r.SenderErrorEstimate = responseHeader.SenderErrorEstimate
 	r.SenderTTL = responseHeader.SenderTtl
 	r.FinishedTimestamp = finished
@@ -167,12 +161,12 @@ func (t *TwampLightTest) Run() (*twamp.TwampResults, error) {
 func (t *TwampLightTest) sendTestMessage(useAllZeros bool) int {
 	packetHeader := MeasurementPacket{
 		Sequence:            t.Sequence,
-		Timestamp:           *twamp.NewTwampTimestamp(time.Now()),
+		Timestamp:           *common.NewTwampTimestamp(time.Now()),
 		ErrorEstimate:       0x0101,
 		MBZ:                 0x0000,
-		ReceiveTimeStamp:    twamp.TwampTimestamp{},
+		ReceiveTimeStamp:    common.TwampTimestamp{},
 		SenderSequence:      0,
-		SenderTimeStamp:     twamp.TwampTimestamp{},
+		SenderTimeStamp:     common.TwampTimestamp{},
 		SenderErrorEstimate: 0x0000,
 		Mbz:                 0x0000,
 		SenderTtl:           87,
@@ -212,7 +206,7 @@ func (t *TwampLightTest) sendTestMessage(useAllZeros bool) int {
 	return totalSize
 }
 
-func (t *TwampLightTest) FormatJSON(r *twamp.PingResults) {
+func (t *TwampLightTest) FormatJSON(r *common.PingResults) {
 	doc, err := json.Marshal(r)
 	if err != nil {
 		log.Fatal(err)
@@ -220,7 +214,7 @@ func (t *TwampLightTest) FormatJSON(r *twamp.PingResults) {
 	fmt.Printf("%s\n", string(doc))
 }
 
-func (t *TwampLightTest) ReturnJSON(r *twamp.PingResults) string {
+func (t *TwampLightTest) ReturnJSON(r *common.PingResults) string {
 	doc, err := json.Marshal(r)
 	if err != nil {
 		log.Fatal(err)
@@ -228,9 +222,9 @@ func (t *TwampLightTest) ReturnJSON(r *twamp.PingResults) string {
 	return fmt.Sprintf("%s\n", string(doc))
 }
 
-func (t *TwampLightTest) Ping(count int, isRapid bool, interval int) *twamp.PingResults {
-	Stats := &twamp.PingResultStats{}
-	Results := &twamp.PingResults{Stat: Stats}
+func (t *TwampLightTest) Ping(count int, isRapid bool, interval int) *common.PingResults {
+	Stats := &common.PingResultStats{}
+	Results := &common.PingResults{Stat: Stats}
 	var TotalRTT time.Duration = 0
 
 	packetSize := 14 + t.GetSession().GetConfig().Padding
@@ -303,41 +297,66 @@ func (t *TwampLightTest) Ping(count int, isRapid bool, interval int) *twamp.Ping
 	return Results
 }
 
-func (t *TwampLightTest) RunX(count int, callback TwampTestCallbackFunction) *twamp.PingResults {
-	Stats := &twamp.PingResultStats{}
-	Results := &twamp.PingResults{Stat: Stats}
+func (t *TwampLightTest) updateStats(TotalRTT time.Duration, count int, stats *common.PingResultStats, Results *common.PingResults) {
+	stats.Avg = time.Duration(int64(TotalRTT) / int64(count))
+	stats.Loss = float64(float64(stats.Transmitted-stats.Received)/float64(stats.Transmitted)) * 100.0
+	stats.StdDev = Results.StdDev(stats.Avg)
+}
+
+func (t *TwampLightTest) RunX(count int, callback common.TwampTestCallbackFunction, doneSignal chan bool) *common.PingResults {
+	defer t.Connection.Close()
+
+	Stats := &common.PingResultStats{}
+	Results := &common.PingResults{Stat: Stats}
 	var TotalRTT time.Duration = 0
 
-	for i := 0; i < count; i++ {
-		Stats.Transmitted++
-		results, err := t.Run()
-		if err != nil {
-			log.Printf("%v\n", err)
-		} else {
-			if i == 0 {
-				Stats.Min = results.GetRTT()
-				Stats.Max = results.GetRTT()
-			}
-			if Stats.Min > results.GetRTT() {
-				Stats.Min = results.GetRTT()
-			}
-			if Stats.Max < results.GetRTT() {
-				Stats.Max = results.GetRTT()
+	terminationRequested := false
+	for i := 0; i < count && !terminationRequested; i++ {
+		select {
+		case <-doneSignal:
+			terminationRequested = true
+		default:
+			Stats.Transmitted++
+			results, err := t.Run()
+
+			if err != nil {
+				// Packet lost somehow
+				log.Printf("%v\n", err)
+			} else {
+				// Packet received
+				if i == 0 {
+					Stats.Min = results.GetRTT()
+					Stats.Max = results.GetRTT()
+				}
+				if Stats.Min > results.GetRTT() {
+					Stats.Min = results.GetRTT()
+				}
+				if Stats.Max < results.GetRTT() {
+					Stats.Max = results.GetRTT()
+				}
+
+				TotalRTT += results.GetRTT()
+				Stats.Received++
+				Results.Results = append(Results.Results, results)
 			}
 
-			TotalRTT += results.GetRTT()
-			Stats.Received++
-			Results.Results = append(Results.Results, results)
+			t.updateStats(TotalRTT, count, Stats, Results)
 			if callback != nil {
-				callback(results)
+				callback(count, results, *Stats)
+			}
+
+			// Wait in a way can be interrupted by user
+			d := t.GetSession().GetConfig().Interval
+			for i := 0; int64(i) < d.Milliseconds() && !terminationRequested; i++ {
+				select {
+				case <-doneSignal:
+					terminationRequested = true
+				default:
+					time.Sleep(1 * time.Millisecond)
+				}
 			}
 		}
 	}
-
-	Stats.Avg = time.Duration(int64(TotalRTT) / int64(count))
-	Stats.Loss = float64(float64(Stats.Transmitted-Stats.Received)/float64(Stats.Transmitted)) * 100.0
-	Stats.StdDev = Results.StdDev(Stats.Avg)
-	defer t.Connection.Close()
 
 	return Results
 }

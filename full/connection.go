@@ -3,7 +3,7 @@ package full
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/halacs/twamp"
+	"github.com/halacs/twamp/common"
 	"log"
 	"net"
 	"time"
@@ -62,7 +62,7 @@ func (c *TwampFullConnection) sendTwampClientSetupResponse() {
 
 func (c *TwampFullConnection) getTwampServerGreetingMessage() (*TwampServerGreeting, error) {
 	// check the greeting message from TWAMP server
-	buffer, err := twamp.ReadFromSocket(c.connection, 64)
+	buffer, err := common.ReadFromSocket(c.connection, 64)
 	if err != nil {
 		log.Printf("Cannot read: %s\n", err)
 		return nil, err
@@ -82,12 +82,12 @@ func (c *TwampFullConnection) getTwampServerGreetingMessage() (*TwampServerGreet
 type TwampServerStart struct {
 	Accept    byte
 	ServerIV  [16]byte
-	StartTime twamp.TwampTimestamp
+	StartTime common.TwampTimestamp
 }
 
 func (c *TwampFullConnection) getTwampServerStartMessage() (*TwampServerStart, error) {
 	// check the start message from TWAMP server
-	buffer, err := twamp.ReadFromSocket(c.connection, 48)
+	buffer, err := common.ReadFromSocket(c.connection, 48)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +117,8 @@ const ( // TODO these constants should be removed as part of a refactor when con
 
 type RequestTwSession []byte
 
-func (b RequestTwSession) Encode(c twamp.TwampSessionConfig) {
-	start_time := twamp.NewTwampTimestamp(time.Now())
+func (b RequestTwSession) Encode(c common.TwampSessionConfig) {
+	start_time := common.NewTwampTimestamp(time.Now())
 	b[offsetRequestTwampSessionCommand] = byte(5)
 	b[offsetRequestTwampSessionIpVersion] = byte(4) // As per RFC, this value can be 4 (IPv4) or 6 (IPv6).
 	binary.BigEndian.PutUint16(b[offsetRequestTwampSessionSenderPort:], uint16(c.SenderPort))
@@ -131,7 +131,7 @@ func (b RequestTwSession) Encode(c twamp.TwampSessionConfig) {
 	binary.BigEndian.PutUint32(b[offsetRequestTwampSessionTypePDescriptor:], uint32(c.TOS))
 }
 
-func (c *TwampFullConnection) CreateFullSession(config twamp.TwampSessionConfig) (*TwampFullSession, error) {
+func (c *TwampFullConnection) CreateFullSession(config common.TwampSessionConfig) (*TwampFullSession, error) {
 	var pdu RequestTwSession = make(RequestTwSession, 112)
 
 	var session *TwampFullSession
@@ -140,7 +140,7 @@ func (c *TwampFullConnection) CreateFullSession(config twamp.TwampSessionConfig)
 
 	c.GetConnection().Write(pdu)
 
-	acceptBuffer, err := twamp.ReadFromSocket(c.GetConnection(), 48)
+	acceptBuffer, err := common.ReadFromSocket(c.GetConnection(), 48)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func (c *TwampFullConnection) CreateFullSession(config twamp.TwampSessionConfig)
 		return nil, err
 	}
 
-	session = &TwampFullSession{connection: c, Port: acceptSession.port, Config: config}
+	session = &TwampFullSession{connection: c, port: acceptSession.port, config: config}
 
 	return session, nil
 }

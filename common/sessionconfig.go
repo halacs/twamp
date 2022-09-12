@@ -1,4 +1,6 @@
-package twamp
+package common
+
+import "time"
 
 type TwampSessionConfig struct {
 	// According to RFC 4656, if Conf-Receiver is not set, Receiver port
@@ -21,4 +23,6 @@ type TwampSessionConfig struct {
 	TOS     int
 	// If true, padding will be filled with zeros instead of random data.
 	UseAllZeros bool
+	// Interval between sending out two measurement packet
+	Interval time.Duration
 }

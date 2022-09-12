@@ -1,4 +1,4 @@
-package twamp
+package common
 
 const (
 	BE   = 0x00

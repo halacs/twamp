@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/halacs/twamp"
+	"github.com/halacs/twamp/common"
 	"github.com/halacs/twamp/full"
 	"log"
 	"os"
@@ -11,7 +11,7 @@ import (
 
 func main() {
 	controlPort := flag.Int("cport", 862, "TWAMP TCP control port")
-	interval := flag.Int("interval", 1, "Delay between TWAMP-test requests (seconds)")
+	interval := flag.Int("interval", 1, "Interval between TWAMP-test requests (seconds)")
 	count := flag.Int("count", 5, "Number of requests to send (1..2000000000 packets)")
 	rapid := flag.Bool("rapid", false, "Send requests rapidly (default count of 5)")
 	size := flag.Int("size", 42, "Size of request packets (0..65468 bytes)")
@@ -38,7 +38,7 @@ func main() {
 	}
 
 	session, err := connection.CreateFullSession(
-		twamp.TwampSessionConfig{
+		common.TwampSessionConfig{
 			SenderPort:   *senderReceiverPort,
 			ReceiverPort: *senderReceiverPort,
 			Timeout:      *wait,
@@ -57,7 +57,7 @@ func main() {
 
 	switch *mode {
 	case "json":
-		results := test.RunX(*count, func(result *twamp.TwampResults) {})
+		results := test.RunX(*count, func(result *common.TwampResults) {})
 		test.FormatJSON(results)
 	case "ping":
 		test.Ping(*count, *rapid, *interval)
