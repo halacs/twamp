@@ -104,9 +104,9 @@ type MeasurementPacket struct {
 }
 
 /*
-Run a TWAMP test and return a pointer to the TwampResults.
+Run a TWAMP test and return a pointer to the TwampResult.
 */
-func (t *TwampLightTest) Run() (*common.TwampResults, error) {
+func (t *TwampLightTest) Run() (*common.TwampResult, error) {
 	paddingSize := t.GetSession().config.Padding
 	senderSeqNum := t.Sequence
 
@@ -137,7 +137,7 @@ func (t *TwampLightTest) Run() (*common.TwampResults, error) {
 	}
 
 	// process test results
-	r := &common.TwampResults{}
+	r := &common.TwampResult{}
 	r.SenderSize = size
 	r.SeqNum = responseHeader.Sequence
 	r.Timestamp = common.NewTimestamp(responseHeader.Timestamp)
@@ -342,19 +342,22 @@ func (t *TwampLightTest) RunX(count int, callback common.TwampTestCallbackFuncti
 
 			t.updateStats(TotalRTT, count, Stats, Results)
 			if callback != nil {
-				callback(count, results, *Stats)
+				callback(count, results, Stats)
 			}
 
 			// Wait in a way can be interrupted by user
-			d := t.GetSession().GetConfig().Interval
-			for i := 0; int64(i) < d.Milliseconds() && !terminationRequested; i++ {
-				select {
-				case <-doneSignal:
-					terminationRequested = true
-				default:
-					time.Sleep(1 * time.Millisecond)
+			time.Sleep(t.GetSession().GetConfig().Interval)
+			/*
+				d := t.GetSession().GetConfig().Interval
+				for i := 0; int64(i) < d.Milliseconds() && !terminationRequested; i++ {
+					select {
+					case <-doneSignal:
+						terminationRequested = true
+					default:
+						time.Sleep(1 * time.Millisecond)
+					}
 				}
-			}
+			*/
 		}
 	}
 

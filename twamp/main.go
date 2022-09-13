@@ -57,7 +57,7 @@ func main() {
 
 	switch *mode {
 	case "json":
-		results := test.RunX(*count, func(result *common.TwampResults) {})
+		results := test.RunX(*count, func(result *common.TwampResult) {})
 		test.FormatJSON(results)
 	case "ping":
 		test.Ping(*count, *rapid, *interval)

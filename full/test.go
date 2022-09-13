@@ -90,9 +90,9 @@ func (t *TwampFullTest) GetRemoteTestHost() string {
 }
 
 /*
-Run a TWAMP test and return a pointer to the TwampResults.
+Run a TWAMP test and return a pointer to the TwampResult.
 */
-func (t *TwampFullTest) Run() (*common.TwampResults, error) {
+func (t *TwampFullTest) Run() (*common.TwampResult, error) {
 	paddingSize := t.GetSession().config.Padding
 	senderSeqNum := t.Sequence
 
@@ -123,7 +123,7 @@ func (t *TwampFullTest) Run() (*common.TwampResults, error) {
 	}
 
 	// process test results
-	r := &common.TwampResults{}
+	r := &common.TwampResult{}
 	r.SenderSize = size
 	r.SeqNum = responseHeader.Sequence
 	r.Timestamp = common.NewTimestamp(responseHeader.Timestamp)
@@ -282,10 +282,12 @@ func (t *TwampFullTest) Ping(count int, isRapid bool, interval int) *common.Ping
 	return Results
 }
 
-func (t *TwampFullTest) updateStats(TotalRTT time.Duration, count int, stats *common.PingResultStats, Results *common.PingResults) {
+func (t *TwampFullTest) updateStats(doStdDev bool, TotalRTT time.Duration, count int, stats *common.PingResultStats, Results *common.PingResults) {
 	stats.Avg = time.Duration(int64(TotalRTT) / int64(count))
 	stats.Loss = float64(float64(stats.Transmitted-stats.Received)/float64(stats.Transmitted)) * 100.0
-	stats.StdDev = Results.StdDev(stats.Avg)
+	if doStdDev {
+		stats.StdDev = Results.StdDev(stats.Avg)
+	}
 }
 
 func (t *TwampFullTest) RunX(count int, callback common.TwampTestCallbackFunction, doneSignal chan bool) *common.PingResults {
@@ -325,23 +327,28 @@ func (t *TwampFullTest) RunX(count int, callback common.TwampTestCallbackFunctio
 				Results.Results = append(Results.Results, results)
 			}
 
-			t.updateStats(TotalRTT, count, Stats, Results)
+			t.updateStats(false, TotalRTT, count, Stats, Results)
 			if callback != nil {
-				callback(count, results, *Stats)
+				callback(count, results, Stats)
 			}
 
 			// Wait in a way can be interrupted by user
-			d := t.GetSession().GetConfig().Interval
-			for i := 0; int64(i) < d.Milliseconds() && !terminationRequested; i++ {
-				select {
-				case <-doneSignal:
-					terminationRequested = true
-				default:
-					time.Sleep(1 * time.Millisecond)
+			time.Sleep(t.GetSession().GetConfig().Interval)
+			/*
+				d := t.GetSession().GetConfig().Interval
+				for i := 0; int64(i) < d.Milliseconds() && !terminationRequested; i++ {
+					select {
+					case <-doneSignal:
+						terminationRequested = true
+					default:
+						time.Sleep(1 * time.Millisecond)
+					}
 				}
-			}
+			*/
 		}
 	}
+
+	t.updateStats(true, TotalRTT, count, Stats, Results)
 
 	return Results
 }

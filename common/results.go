@@ -9,7 +9,7 @@ import (
 /*
 TWAMP test result timestamps have been normalized to UNIX epoch time.
 */
-type TwampResults struct {
+type TwampResult struct {
 	SeqNum              uint32    `json:"seqnum"`
 	Timestamp           time.Time `json:"timestamp"`
 	ErrorEstimate       uint16    `json:"errorEstimate"`
@@ -22,15 +22,15 @@ type TwampResults struct {
 	SenderSize          int       `json:"senderSize"`
 }
 
-func (r *TwampResults) GetWait() time.Duration {
+func (r *TwampResult) GetWait() time.Duration {
 	return r.Timestamp.Sub(r.ReceiveTimestamp)
 }
 
-func (r *TwampResults) GetRTT() time.Duration {
+func (r *TwampResult) GetRTT() time.Duration {
 	return r.FinishedTimestamp.Sub(r.SenderTimestamp)
 }
 
-func (r *TwampResults) PrintResults() {
+func (r *TwampResult) PrintResults() {
 	log.Printf("TWAMP test took %s.\n", r.GetRTT())
 	log.Printf("Sender Sequence Number: %d", r.SenderSeqNum)
 	log.Printf("Receiver Sequence Number: %d", r.SeqNum)
@@ -47,7 +47,7 @@ type PingResultStats struct {
 }
 
 type PingResults struct {
-	Results []*TwampResults  `json:"results"`
+	Results []*TwampResult   `json:"results"`
 	Stat    *PingResultStats `json:"stats"`
 }
 
